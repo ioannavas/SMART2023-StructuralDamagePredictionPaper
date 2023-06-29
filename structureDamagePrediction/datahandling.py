@@ -25,7 +25,7 @@ class StructuralDamageDataAndMetadataReader():
 
         return (sensor_filepath, metadata_filepath)
     
-    def read_data_and_metadata(self, l = StartEndLogger(), normalize = True) -> Tuple[list,list]:
+    def read_data_and_metadata(self, l = StartEndLogger(), normalize = True, selected_features : list = None) -> Tuple[list,list]:
         """Returns a tuple of two lists containing the sequence data and the metadata of the read instances.
         """
         # Init sensor measurements sequence list
@@ -39,7 +39,7 @@ class StructuralDamageDataAndMetadataReader():
         instance_list = []
         while os.path.isfile(sensor_filepath) and os.path.isfile(metadata_filepath):
             l.start("Reading data from file #%d"%(file_cnt))
-            fdr = FileDataReader(sequence_data_filename=sensor_filepath, meta_data_filename=metadata_filepath)
+            fdr = FileDataReader(sequence_data_filename=sensor_filepath, meta_data_filename=metadata_filepath, selected_features=selected_features)
 
             # Gather the data
             # and metadata
@@ -89,12 +89,13 @@ class BaseDataReader():
         return None
 
 class FileDataReader(BaseDataReader):
-    def __init__(self, sequence_data_filename: str, meta_data_filename: str):
+    def __init__(self, sequence_data_filename: str, meta_data_filename: str, selected_features : list):
         self.sequence_filename = sequence_data_filename
         self.metadata_filename = meta_data_filename
+        self.selected_features = selected_features
 
     
-    def read_sequence(self, ) -> torch.Tensor:
+    def read_sequence(self) -> torch.Tensor:
         # Init sequence list
         seq_list = []
 
@@ -114,7 +115,17 @@ class FileDataReader(BaseDataReader):
 
                 # Line format
                 # time s2 s3 s4
-                cur_line_fields = s_line.split()[1:] # Ignore time
+                cur_line_fields = s_line.split()
+                # If we have asked for specific features
+                if self.selected_features is not None:
+                    # Get the corresponding subset
+                    # We want to use 1-based indexing, so we reduce index values
+                    cur_line_fields=[cur_line_fields[idx] for idx in self.selected_features]
+                else:
+                    # Otherwise, simply ignore time
+                    cur_line_fields = cur_line_fields[1:]
+
+                
                 import torch.types
                 cur_line_tensor = torch.tensor(list(map(float,cur_line_fields)), dtype=torch.float)
 
